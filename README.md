@@ -8,19 +8,16 @@
 ## English Documentation
 
 ### Description
-This project implements Algorithm for solving Systems of Linear Algebraic Equations (SLAE). It specifically focuses on the **Square Root Method (Cholesky Decomposition)** for Symmetric Positive Definite (SPD) matrices. It also implements other direct and iterative methods for comparison purposes.
+This project implements the **Square Root Method (Cholesky Decomposition)** for solving Systems of Linear Algebraic Equations (SLAE). The method is specifically designed for Symmetric Positive Definite (SPD) matrices and decomposes the matrix as $A = L L^T$, where $L$ is a lower triangular matrix.
 
 ### Features
-1.  **Direct Methods:**
-    *   **Square Root Method (Cholesky):** $A = L L^T$. Efficient for SPD matrices.
-    *   **LU Decomposition:** With partial pivoting ($PA = LU$). General purpose direct solver.
-    *   **Library Baseline:** Uses `numpy.linalg.solve` for performance benchmarking.
-2.  **Iterative Methods:**
-    *   **Jacobi Method:** Splits matrix into Diagonal and Remainder.
-    *   **Gauss-Seidel Method:** Uses updated values immediately during iteration.
-3.  **Analysis:**
-    *   Compares methods based on **execution time**, **residual norm** ($||Ax - b||_2$), and **number of iterations**.
-    *   Validates results against a reference solution.
+1.  **Square Root Method (Cholesky):** 
+    *   Decomposes SPD matrix $A$ as $A = L L^T$
+    *   Solves the system using forward and backward substitution
+    *   Efficient for SPD matrices with $O(n^3/3)$ operations
+2.  **Analysis:**
+    *   Reports **execution time** and **residual norm** ($||Ax - b||_2$)
+    *   Validates that the input matrix is symmetric and positive definite
 
 ### Usage
 #### Requirements
@@ -37,13 +34,10 @@ python Square-Root-Method.py
 # 2. Run with a specific matrix size for the demo
 python Square-Root-Method.py --n 10
 
-# 3. Generate a diagonally dominant matrix for the demo (better for iterative convergence)
-python Square-Root-Method.py --demo diagdom
-
-# 4. Load matrix A and vector b from a JSON file
+# 3. Load matrix A and vector b from a JSON file
 python Square-Root-Method.py --json input.json
 
-# 5. Show help message
+# 4. Show help message
 python Square-Root-Method.py --help
 ```
 
@@ -69,19 +63,16 @@ If you use the `--json` flag, the file must be in the following format:
 ## Документация на Русском
 
 ### Описание
-Этот проект реализует алгоритмы для решения Систем Линейных Алгебраических Уравнений (СЛАУ). Основное внимание уделяется **Методу Квадратного Корня (Разложение Холецкого)** для симметричных положительно определенных матриц. Также реализованы другие прямые и итерационные методы для сравнения.
+Этот проект реализует **Метод Квадратного Корня (Разложение Холецкого)** для решения Систем Линейных Алгебраических Уравнений (СЛАУ). Метод предназначен для симметричных положительно определенных матриц и разлагает матрицу как $A = L L^T$, где $L$ — нижняя треугольная матрица.
 
 ### Возможности
-1.  **Прямые методы:**
-    *   **Метод Квадратного Корня (Холецкого):** $A = L L^T$. Эффективен для SPD-матриц.
-    *   **LU-разложение:** С частичным выбором ведущего элемента ($PA = LU$). Универсальный прямой метод.
-    *   **Библиотечное решение:** Использует `numpy.linalg.solve` в качестве эталона.
-2.  **Итерационные методы:**
-    *   **Метод Якоби:** Разделяет матрицу на диагональную и остаточную части.
-    *   **Метод Гаусса-Зейделя:** Использует обновленные значения переменных немедленно.
-3.  **Анализ:**
-    *   Сравнение методов по **времени выполнения**, **норме невязки** ($||Ax - b||_2$) и **количеству итераций**.
-    *   Проверка результатов относительно эталонного решения.
+1.  **Метод Квадратного Корня (Холецкого):**
+    *   Разлагает SPD-матрицу $A$ как $A = L L^T$
+    *   Решает систему с помощью прямой и обратной подстановки
+    *   Эффективен для SPD-матриц с $O(n^3/3)$ операциями
+2.  **Анализ:**
+    *   Отображает **время выполнения** и **норму невязки** ($||Ax - b||_2$)
+    *   Проверяет, что входная матрица симметрична и положительно определена
 
 ### Использование
 #### Требования
@@ -98,13 +89,10 @@ python Square-Root-Method.py
 # 2. Запуск с указанным размером матрицы для демо
 python Square-Root-Method.py --n 10
 
-# 3. Генерация матрицы с диагональным преобладанием (лучше для сходимости итерационных методов)
-python Square-Root-Method.py --demo diagdom
-
-# 4. Загрузка матрицы A и вектора b из JSON файла
+# 3. Загрузка матрицы A и вектора b из JSON файла
 python Square-Root-Method.py --json input.json
 
-# 5. Показать справку
+# 4. Показать справку
 python Square-Root-Method.py --help
 ```
 

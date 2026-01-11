@@ -2,20 +2,15 @@
 """
 SLAE Course Project
 Implements:
-  1) Direct method (assigned): Square Root Method (Cholesky) for SPD matrices
-  2) Alternative direct method: LU decomposition with partial pivoting
-  3) Library baseline ("Gauss from a suitable library"): numpy.linalg.solve
-  4) Iterative method (proposed): Jacobi
-  5) Alternative iterative method: Gauss-Seidel
-  6) Comparison by criteria: runtime, residual norm, iterations, convergence status
+  Direct method: Square Root Method (Cholesky) for SPD matrices
 
 Input options:
   - Load A and b from a JSON file
-  - Generate demo matrices (SPD, diagonally dominant)
+  - Generate demo matrices (SPD)
 
 Output:
-  - Solutions from each method
-  - Comparison report
+  - Solution from square root method
+  - Runtime and residual norm
 
 Author: (you)
 """
@@ -27,7 +22,7 @@ import json
 import math
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, List
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -44,7 +39,6 @@ class SolveResult:
     message: str
     time_sec: float
     residual_norm: Optional[float] = None
-    iterations: Optional[int] = None
 
 
 def residual_norm(A: np.ndarray, x: np.ndarray, b: np.ndarray) -> float:
@@ -136,153 +130,14 @@ def solve_cholesky(A: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 # ----------------------------
-# 2) Alternative direct method: LU with partial pivoting
-# ----------------------------
-
-def lu_decomposition_partial_pivot(A: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Computes P, L, U such that P A = L U using partial pivoting.
-    """
-    A = A.astype(float).copy()
-    n = A.shape[0]
-
-    P = np.eye(n)
-    L = np.zeros((n, n), dtype=float)
-    U = A
-
-    for k in range(n):
-        # Pivot selection
-        pivot = np.argmax(np.abs(U[k:, k])) + k
-        if abs(U[pivot, k]) < 1e-15:
-            raise ValueError("Matrix is singular or nearly singular (LU pivot too small).")
-
-        # Swap rows in U
-        if pivot != k:
-            U[[k, pivot]] = U[[pivot, k]]
-            P[[k, pivot]] = P[[pivot, k]]
-            # swap already built part of L
-            if k > 0:
-                L[[k, pivot], :k] = L[[pivot, k], :k]
-
-        L[k, k] = 1.0
-
-        for i in range(k + 1, n):
-            L[i, k] = U[i, k] / U[k, k]
-            U[i, k:] = U[i, k:] - L[i, k] * U[k, k:]
-            U[i, k] = 0.0
-
-    return P, L, U
-
-
-def solve_lu(A: np.ndarray, b: np.ndarray) -> np.ndarray:
-    P, L, U = lu_decomposition_partial_pivot(A)
-    # Solve P A x = P b  -> L U x = P b
-    pb = P @ b
-    y = forward_substitution(L, pb)
-    x = backward_substitution(U, y)
-    return x
-
-
-# ----------------------------
-# 4) Iterative method: Jacobi
-# ----------------------------
-
-def solve_jacobi(
-    A: np.ndarray,
-    b: np.ndarray,
-    x0: Optional[np.ndarray] = None,
-    tol: float = 1e-10,
-    max_iter: int = 10_000
-) -> Tuple[np.ndarray, int, bool, str]:
-    """
-    Jacobi iteration:
-      x^{k+1} = D^{-1} (b - (L+U) x^k)
-
-    Convergence is not guaranteed unless conditions hold
-    (for example, A diagonally dominant or SPD in some cases).
-    """
-    n = A.shape[0]
-    x = np.zeros(n, dtype=float) if x0 is None else x0.astype(float).copy()
-
-    D = np.diag(A)
-    if np.any(np.abs(D) < 1e-15):
-        return x, 0, False, "Jacobi failed: zero on diagonal."
-
-    R = A - np.diagflat(D)
-
-    for k in range(1, max_iter + 1):
-        x_new = (b - R @ x) / D
-        if np.linalg.norm(x_new - x, ord=np.inf) <= tol:
-            return x_new, k, True, "Converged."
-        x = x_new
-
-    return x, max_iter, False, "Max iterations reached."
-
-
-# ----------------------------
-# 5) Alternative iterative method: Gauss-Seidel
-# ----------------------------
-
-def solve_gauss_seidel(
-    A: np.ndarray,
-    b: np.ndarray,
-    x0: Optional[np.ndarray] = None,
-    tol: float = 1e-10,
-    max_iter: int = 10_000
-) -> Tuple[np.ndarray, int, bool, str]:
-    """
-    Gauss-Seidel iteration:
-      update x in-place using the latest available values.
-    """
-    n = A.shape[0]
-    x = np.zeros(n, dtype=float) if x0 is None else x0.astype(float).copy()
-
-    for k in range(1, max_iter + 1):
-        x_old = x.copy()
-
-        for i in range(n):
-            if abs(A[i, i]) < 1e-15:
-                return x, k - 1, False, "Gauss-Seidel failed: zero on diagonal."
-
-            s1 = float(A[i, :i] @ x[:i])
-            s2 = float(A[i, i + 1:] @ x_old[i + 1:])
-            x[i] = (b[i] - s1 - s2) / A[i, i]
-
-        if np.linalg.norm(x - x_old, ord=np.inf) <= tol:
-            return x, k, True, "Converged."
-
-    return x, max_iter, False, "Max iterations reached."
-
-
-# ----------------------------
-# 3) Library baseline: numpy.linalg.solve
-# ----------------------------
-
-def solve_library(A: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return np.linalg.solve(A, b)
-
-
-# ----------------------------
-# Comparison runner
+# Method runner
 # ----------------------------
 
 def run_method(name: str, func, A: np.ndarray, b: np.ndarray) -> SolveResult:
     t0 = time.perf_counter()
     try:
-        out = func(A, b)
+        x = func(A, b)
         t1 = time.perf_counter()
-
-        # handle iterative return shape
-        if isinstance(out, tuple):
-            x = out[0]
-            iters = int(out[1])
-            ok = bool(out[2])
-            msg = str(out[3])
-            resn = residual_norm(A, x, b) if ok else None
-            return SolveResult(name=name, x=x, ok=ok, message=msg, time_sec=t1 - t0,
-                               residual_norm=resn, iterations=iters)
-
-        x = out
         resn = residual_norm(A, x, b)
         return SolveResult(name=name, x=x, ok=True, message="OK", time_sec=t1 - t0,
                            residual_norm=resn)
@@ -291,31 +146,18 @@ def run_method(name: str, func, A: np.ndarray, b: np.ndarray) -> SolveResult:
         return SolveResult(name=name, x=None, ok=False, message=f"Error: {e}", time_sec=t1 - t0)
 
 
-def print_report(results: List[SolveResult], x_ref: Optional[np.ndarray]) -> None:
-    print("\n=== Solutions and Comparison ===")
-    for r in results:
-        print(f"\n[{r.name}]")
-        print(f"Status: {'OK' if r.ok else 'FAIL'}")
-        print(f"Message: {r.message}")
-        print(f"Time (s): {r.time_sec:.6f}")
+def print_report(result: SolveResult) -> None:
+    print("\n=== Solution ===")
+    print(f"\n[{result.name}]")
+    print(f"Status: {'OK' if result.ok else 'FAIL'}")
+    print(f"Message: {result.message}")
+    print(f"Time (s): {result.time_sec:.6f}")
 
-        if r.iterations is not None:
-            print(f"Iterations: {r.iterations}")
+    if result.residual_norm is not None:
+        print(f"Residual norm ||Ax-b||_2: {result.residual_norm:.3e}")
 
-        if r.residual_norm is not None:
-            print(f"Residual norm ||Ax-b||_2: {r.residual_norm:.3e}")
-
-        if r.ok and r.x is not None:
-            print(f"x: {np.array2string(r.x, precision=6, suppress_small=False)}")
-            if x_ref is not None:
-                err = float(np.linalg.norm(r.x - x_ref, ord=2))
-                print(f"Error vs reference ||x - x_ref||_2: {err:.3e}")
-
-    print("\n=== Ranking by time (fastest first) ===")
-    ok_results = [r for r in results if r.ok]
-    ok_results.sort(key=lambda r: r.time_sec)
-    for r in ok_results:
-        print(f"{r.name:20s} {r.time_sec:.6f} s")
+    if result.ok and result.x is not None:
+        print(f"x: {np.array2string(result.x, precision=6, suppress_small=False)}")
 
 
 # ----------------------------
@@ -356,40 +198,21 @@ def make_spd_demo(n: int, seed: int = 0) -> Tuple[np.ndarray, np.ndarray]:
     return A, b
 
 
-def make_diag_dominant_demo(n: int, seed: int = 0) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Diagonally dominant matrices are good for iterative convergence.
-    """
-    rng = np.random.default_rng(seed)
-    A = rng.normal(size=(n, n))
-    for i in range(n):
-        A[i, i] = np.sum(np.abs(A[i])) + 1.0
-    b = rng.normal(size=n)
-    return A, b
-
-
 # ----------------------------
 # Main
 # ----------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="SLAE course project solver and comparer.")
+    parser = argparse.ArgumentParser(description="SLAE course project: Square Root Method solver.")
     parser.add_argument("--json", type=str, default=None, help="Path to JSON with A and b.")
-    parser.add_argument("--demo", type=str, choices=["spd", "diagdom"], default="spd",
-                        help="Which demo matrix to generate if --json is not provided.")
     parser.add_argument("--n", type=int, default=5, help="Size for demo matrix.")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for demo matrix.")
-    parser.add_argument("--tol", type=float, default=1e-10, help="Tolerance for iterative methods.")
-    parser.add_argument("--max-iter", type=int, default=10000, help="Max iterations for iterative methods.")
     args = parser.parse_args()
 
     if args.json:
         A, b = load_json(args.json)
     else:
-        if args.demo == "spd":
-            A, b = make_spd_demo(args.n, args.seed)
-        else:
-            A, b = make_diag_dominant_demo(args.n, args.seed)
+        A, b = make_spd_demo(args.n, args.seed)
 
     print("=== Input ===")
     print(f"A shape: {A.shape}")
@@ -397,34 +220,9 @@ def main() -> None:
     print(f"Symmetric: {is_symmetric(A)}")
     print(f"SPD (Cholesky applicable): {is_spd(A)}")
 
-    # Reference solution from library (baseline)
-    ref = run_method("Library solve (numpy.linalg.solve)", solve_library, A, b)
-    x_ref = ref.x if ref.ok else None
-
-    # 1) Proposed direct method: square root method (Cholesky)
-    chol = run_method("Direct: Square Root (Cholesky)", solve_cholesky, A, b)
-
-    # 2) Alternative direct method: LU with partial pivoting
-    lu = run_method("Direct: LU (partial pivoting)", solve_lu, A, b)
-
-    # 4) Proposed iterative method: Jacobi
-    jacobi = run_method(
-        "Iterative: Jacobi",
-        lambda AA, bb: solve_jacobi(AA, bb, tol=args.tol, max_iter=args.max_iter),
-        A,
-        b
-    )
-
-    # 5) Alternative iterative method: Gauss-Seidel
-    gs = run_method(
-        "Iterative: Gauss-Seidel",
-        lambda AA, bb: solve_gauss_seidel(AA, bb, tol=args.tol, max_iter=args.max_iter),
-        A,
-        b
-    )
-
-    results = [ref, chol, lu, jacobi, gs]
-    print_report(results, x_ref)
+    # Square root method (Cholesky)
+    result = run_method("Square Root Method (Cholesky)", solve_cholesky, A, b)
+    print_report(result)
 
 
 if __name__ == "__main__":
